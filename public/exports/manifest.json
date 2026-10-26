@@ -1,0 +1,18 @@
+{
+  "format": "glTF 2.0 / GLB",
+  "units": "meters",
+  "files": [
+    {
+      "file": "cloud-dome.glb",
+      "bytes": 1091684,
+      "triangles": 19584,
+      "animations": 1
+    },
+    {
+      "file": "cloud-dome-grid.glb",
+      "bytes": 1300044,
+      "triangles": 25728,
+      "animations": 1
+    }
+  ]
+}

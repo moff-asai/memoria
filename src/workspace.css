@@ -1,0 +1,84 @@
+.workspace { min-height: 100dvh; }
+.experience-switch { position: fixed; z-index: 60; top: 80px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; padding: 6px; border: 1px solid #ffffffc9; border-radius: 999px; background: #fcfaffeb; box-shadow: 0 8px 32px #342d4c10; backdrop-filter: blur(20px); }
+.experience-switch button { min-height: 40px; min-width: 112px; padding: 8px 24px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-size: 14px; }
+.experience-switch button[aria-pressed=true] { color: #fff; background: var(--primary); }
+.workspace[data-workspace=demo] .experience-switch { top: 80px; }
+.workspace-loading { padding: 160px 32px; text-align: center; }
+.place-experience { position: fixed; inset: 0; overflow: hidden; background: var(--scene-background); }
+.place-experience[data-camera=ar] { background: transparent; }
+.place-experience .ov-top { z-index: 4; }
+.place-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.place-canvas canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.place-intro { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(480px, calc(100% - 48px)); text-align: center; color: var(--ink); }
+.place-kicker { font-size: 12px; letter-spacing: .16em; color: var(--muted); margin: 0 0 24px; }
+.place-intro h1 { margin: 0 0 24px; font-size: clamp(26px, 3.5vw, 36px); font-weight: 500; line-height: 1.6; letter-spacing: .02em; }
+.place-intro > p:not(.place-kicker) { font-size: 14px; line-height: 2; margin: 0 0 32px; color: var(--muted); }
+.place-intro .ov-pill { justify-content: center; margin: 12px auto; min-width: 192px; }
+.place-intro h1 span { white-space: nowrap; }
+.place-intro .ov-hero-start { width: auto; min-width: 224px; background: var(--primary); color: var(--surface); }
+.place-intro small { display: block; margin: 24px 0 0; font-size: 11px; color: var(--muted); }
+.place-tools { position: absolute; right: 24px; top: 88px; z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.place-tools .ov-pill { min-height: 40px; height: auto; padding: 8px 16px; font-size: 12px; background: var(--surface-composer); box-shadow: 0 4px 24px #49376c0d; }
+.place-experience button:disabled { opacity: .45; cursor: default; }
+.place-prompt { display: flex; align-items: center; cursor: default; }
+.place-shutter { background: var(--primary) !important; color: var(--surface) !important; }
+.place-shutter:hover:not(:disabled) { background: var(--primary-hover) !important; }
+.place-dock { z-index: 4; }
+.place-dock .ov-icon { font-size: 24px; flex-shrink: 0; }
+.place-dock .ov-foot { background: var(--surface-composer); border-radius: 16px; padding: 4px 12px; }
+.place-notices { position: absolute; top: 152px; left: 50%; transform: translateX(-50%); z-index: 5; width: min(520px, calc(100% - 48px)); text-align: center; pointer-events: none; }
+.place-status,.place-error,.place-subtle { border-radius: 16px; padding: 12px 16px; background: var(--surface-composer); font-size: 12px; line-height: 1.8; color: var(--muted); backdrop-filter: blur(16px); margin: 8px 0; }
+.place-error { color: #8a3448; }
+.place-subtle { font-size: 11px; }
+.place-loading { position: absolute; inset: 50% 0 auto; text-align: center; font-size: 14px; color: var(--muted); }
+.place-ring-toolbar { position: absolute; left: 50%; bottom: 32px; z-index: 4; transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; width: min(640px, calc(100% - 32px)); padding: 16px; border: 1px solid var(--surface-border); background: var(--surface-composer); backdrop-filter: blur(20px); border-radius: 24px; }
+.place-ring-toolbar > p { flex-basis: 100%; text-align: center; margin: 0 0 8px; font-size: 13px; }
+.place-ring-toolbar form { display: flex; flex-wrap: wrap; gap: 8px; }
+.place-text { background: transparent; border: 0; color: var(--muted); font: inherit; font-size: 12px; padding: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; min-height: 44px; }
+.place-file-input { position: fixed; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.place-draft { position: fixed; width: min(640px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; border: 1px solid var(--surface-border); border-radius: 24px; padding: 32px; background: var(--surface-composer); color: var(--ink); box-shadow: 0 24px 80px var(--shadow); backdrop-filter: blur(24px); }
+.place-draft::backdrop,.place-photo-view::backdrop { background: #342d4c88; backdrop-filter: blur(8px); }
+.place-draft h2 { font-size: 22px; margin: 0 0 16px; font-weight: 500; }
+.place-draft-note,.place-location-note { font-size: 12px; line-height: 1.8; color: var(--muted); }
+.place-photo-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: 8px; margin: 24px 0; }
+.place-photo-grid figure { position: relative; margin: 0; }
+.place-photo-grid img { width: 100%; height: 160px; object-fit: cover; border-radius: 16px; }
+.place-photo-remove { position: absolute; top: 8px; right: 8px; border: 0; border-radius: 50%; background: var(--surface-composer); color: var(--primary); width: 40px; height: 40px; font-size: 20px; }
+.place-title-label { display: grid; gap: 8px; font-size: 12px; color: var(--muted); }
+.place-title-label input,.place-ring-toolbar input { min-height: 48px; padding: 12px 16px; font: inherit; border-radius: 16px; border: 1px solid #cfc5e0; color: var(--ink); background: var(--surface); }
+.place-consent { display: flex; align-items: flex-start; gap: 12px; margin: 24px 0 16px; font-size: 13px; line-height: 1.8; }
+.place-consent input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; accent-color: var(--primary); }
+.place-draft small { display: block; font-size: 11px; line-height: 1.8; color: var(--muted); }
+.place-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.place-photo-view { position: fixed; width: min(1000px,calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; background: var(--surface-composer); border: 1px solid var(--surface-border); border-radius: 24px; padding: 24px; color: var(--ink); }
+.place-photo-view > img { display: block; max-width: 100%; max-height: 70dvh; object-fit: contain; margin: 16px auto; border-radius: 16px; }
+.place-photo-view > p { text-align: center; font-size: 13px; }
+.place-photo-nav { display: flex; justify-content: center; gap: 16px; }
+.place-photo-close { margin-left: auto; }
+@media(max-width:720px) {
+ .experience-switch,.workspace[data-workspace=demo] .experience-switch { top: 80px; }
+ .experience-switch button { padding: 8px 16px; min-width: 104px; }
+ .place-tools { top: 144px; right: 16px; gap: 6px; }
+ .place-tools .ov-pill { padding: 8px 12px; font-size: 11px; }
+ .place-notices { top: 144px; left: 16px; transform: none; width: calc(100% - 190px); text-align: left; }
+ .place-dock .ov-composer { flex-wrap: wrap; border-radius: 24px; }
+ .place-dock .place-prompt { flex-basis: calc(100% - 64px); font-size: 14px; }
+ .place-dock .ov-pill { flex: 1; justify-content: center; }
+ .place-draft { padding: 24px; }
+ .place-ring-toolbar { bottom: 24px; }
+ .place-photo-grid img { height: 128px; }
+}
+
+.place-privacy { max-width: 216px; padding: 8px 12px; background: var(--surface-composer); border-radius: 16px; color: var(--muted); font-size: 11px; line-height: 1.8; }
+.place-privacy summary { cursor: pointer; min-height: 28px; }
+.place-privacy p { margin: 8px 0; }
+@media(max-width:720px) { .place-privacy { max-width: 164px; } }
+
+.place-gallery-controls { justify-content: center; gap: 24px; }
+.place-gallery-controls .place-prompt { font-size: 13px; color: var(--muted); }
+@media(max-width:720px) {
+ .experience-switch { width: calc(100% - 32px); max-width: 400px; gap: 4px; }
+ .experience-switch button { flex: 1; min-width: 0; padding: 8px; font-size: 12px; white-space: nowrap; }
+ .place-gallery-controls { gap: 8px; }
+ .place-gallery-controls .place-prompt { flex-basis: auto !important; font-size: 11px; }
+}

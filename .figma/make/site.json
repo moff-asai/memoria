@@ -1,0 +1,18 @@
+{
+  "title": "memoria",
+  "description": "Automates project setup and deployment verification for designers and developers, ensuring critical issues are flagged and builds are reliably prepared.",
+  "language": "ja",
+  "robots": {
+    "index": false
+  },
+  "icons": {
+    "icon": "/.figma/make/favicon.png"
+  },
+  "openGraph": {
+    "image": "/.figma/make/social-image.png"
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

@@ -1,0 +1,9 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>泡の表示検証 · memoria</title><link rel="stylesheet" href="/src/index.css"><link rel="stylesheet" href="/src/workspace.css"><body><main class="place-experience"><div id="scene" class="place-canvas"></div><header class="ov-top"><span class="ov-brand"><img class="ov-logo" src="/brand/memoria-logo.png" alt="memoria"></span><span></span><span class="ov-chip">ローカルの表示検証</span></header><div class="experience-switch"><span style="padding:8px 24px;color:var(--primary)">自分の思い出 · 表示検証</span></div><div class="place-ring-toolbar"><p id="status">デモ同梱の写真を使った表示検証です。DBへの書き込みはありません。</p><button class="ov-pill" id="back">戻る</button></div></main><script type="module">
+import { createPlaceScene } from '/src/placeScene.ts';
+const photos = ['/assets-2/photo-1769234428281-c108a6053cd3.avif','/assets-1/photo-1787662366043-ab7fcb353bda.avif','/assets-1/photo-1593765282757-d258abac767b.avif','/assets-1/photo-1637230922121-8eb94eff2dd6.avif','/assets-1/photo-1509001333319-944a48ef262b.avif'];
+const scene = await createPlaceScene(document.getElementById('scene'), { layout:'mine', compact:matchMedia('(max-width:720px)').matches,
+ onRing: memory => document.getElementById('status').textContent = memory ? memory.title + ' · 写真枚数分の円周表示' : 'デモ同梱の写真を使った表示検証です。DBへの書き込みはありません。',
+ onPhoto: (memory,index) => document.getElementById('status').textContent = memory.title + ' · 写真 ' + (index+1), onError: message => document.getElementById('status').textContent=message });
+scene.setMemories(photos.slice(0,3).map((_,index)=>({ id:'visual-'+index, title:['日々の思い出','旅の記憶','大切な時間'][index], latitude:0,longitude:0,photos:[...photos.slice(index),...photos.slice(0,index)],createdAt:'2026-10-26T00:00:00Z',owned:true })));
+document.getElementById('back').addEventListener('click',()=>scene.back());
+</script></body></html>
