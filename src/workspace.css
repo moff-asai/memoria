@@ -26,6 +26,8 @@
 .place-shutter { background: var(--primary) !important; color: var(--surface) !important; }
 .place-shutter:hover:not(:disabled) { background: var(--primary-hover) !important; }
 .place-dock { z-index: 4; }
+.place-dock .ov-vr { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.place-vr-note { margin: 0; max-width: 400px; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
 .place-dock .ov-icon { font-size: 24px; flex-shrink: 0; }
 .place-dock .ov-foot { background: var(--surface-composer); border-radius: 16px; padding: 4px 12px; }
 .place-notices { position: absolute; top: 152px; left: 50%; transform: translateX(-50%); z-index: 5; width: min(520px, calc(100% - 48px)); text-align: center; pointer-events: none; }
@@ -59,8 +61,7 @@
 .place-photo-close { margin-left: auto; }
 @media(max-width:720px) {
  .experience-switch,.workspace[data-workspace=demo] .experience-switch { top: 80px; }
- .experience-switch button { padding: 8px 10px; min-width: 0; font-size: 13px; }
- .experience-switch .ov-help { width: 36px; height: 36px; }
+ .experience-switch button { padding: 8px 16px; min-width: 104px; }
  .place-tools { top: 144px; right: 16px; gap: 6px; }
  .place-tools .ov-pill { padding: 8px 12px; font-size: 11px; }
  .place-notices { top: 144px; left: 16px; transform: none; width: calc(100% - 190px); text-align: left; }
@@ -82,6 +83,17 @@
 @media(max-width:720px) {
  .experience-switch { width: calc(100% - 32px); max-width: 400px; gap: 4px; }
  .experience-switch button { flex: 1; min-width: 0; padding: 8px; font-size: 12px; white-space: nowrap; }
+ .experience-switch .ov-help { flex: none; width: 36px; height: 36px; }
+ /* On phones the web view stacks its panels top to bottom and scrolls, over a fixed 3D backdrop,
+  * instead of overlaying them; the header scrolls away and the tab bar stays fixed above. */
+ .place-experience[data-camera=web] { display: flex; flex-direction: column; align-items: center; gap: 16px; overflow-y: auto; padding: 144px 0 max(20px, env(safe-area-inset-bottom)); box-sizing: border-box; }
+ .place-experience[data-camera=web] .place-canvas { position: fixed; }
+ .place-experience .ov-top > span:empty { display: none; }
+ .place-experience[data-camera=web] .place-tools { position: relative; top: auto; right: auto; order: 1; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start; width: calc(100% - 32px); }
+ .place-experience[data-camera=web] .place-privacy { max-width: none; }
+ .place-experience[data-camera=web] .place-notices { position: relative; top: auto; left: auto; order: 2; width: calc(100% - 32px); text-align: center; }
+ .place-experience[data-camera=web] .place-intro { position: relative; top: auto; left: auto; transform: none; order: 3; z-index: 1; width: calc(100% - 48px); margin: 16px 0; }
+ .place-experience[data-camera=web] .place-dock { position: relative; left: auto; bottom: auto; transform: none; order: 4; margin-top: auto; width: calc(100% - 32px); flex-shrink: 0; }
  .place-gallery-controls { gap: 8px; }
  .place-gallery-controls .place-prompt { flex-basis: auto !important; font-size: 11px; }
 }

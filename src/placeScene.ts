@@ -339,13 +339,14 @@ export async function createPlaceScene(host: HTMLDivElement, options: {
     }
     if (renderer.xr.isPresenting && ring?.status === "open" && immersion.status === "closed") {
       head.getWorldDirection(forward); forward.y = 0; forward.normalize()
-      ringBack.group.position.copy(position).addScaledVector(forward, 0.8); ringBack.group.position.y -= 0.65
+      ringBack.group.position.copy(position).addScaledVector(forward, 0.8); ringBack.group.position.y -= 0.38
       ringBack.show()
     } else ringBack.hide()
     ringBack.update(delta, position)
+    // Kept within a downward glance (about 37°) so headsets with a narrow view still show it.
     if (renderer.xr.isPresenting) {
       head.getWorldDirection(forward); forward.y = 0; forward.normalize()
-      exitBar.group.position.copy(position).addScaledVector(forward, 0.8); exitBar.group.position.y -= 0.95
+      exitBar.group.position.copy(position).addScaledVector(forward, 0.8); exitBar.group.position.y -= 0.6
       exitBar.show()
     } else exitBar.hide()
     exitBar.update(delta, position)
