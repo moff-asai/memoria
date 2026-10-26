@@ -329,7 +329,7 @@ export function NewExperience({ view = "nearby", onCreate }: { view?: "nearby" |
           <button className="ov-pill place-shutter" disabled={working} onClick={() => picker.current?.click()}>写真を選ぶ</button></div>}
         {camera === "web" && <div className="ov-vr" data-ready={vrSupported}>
           <button type="button" disabled={!vrSupported || working} onClick={() => void startXR("vr")}>{vrSupported ? "VRで見る" : "VR非対応"}</button>
-          {!personal && <p className="place-vr-note">実際の空間に、貴方の思い出を浮かべられます。Vision Proなどimmersive-ar非対応の機種では、実際の空間は表示されません。</p>}
+          {!personal && <p className="place-vr-note">実際の空間に、貴方の思い出を浮かべられます。<br />Vision Proなどimmersive-ar非対応の機種では、実際の空間は表示されません。</p>}
         </div>}
       </div>
       <p className="ov-foot">{personal ? "このブラウザーで残した思い出 · 泡を押して写真を見る" : "周辺50mの思い出 · 周囲の環境はWebXRで表示"}</p>
