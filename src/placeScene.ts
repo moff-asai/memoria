@@ -1,4 +1,5 @@
 import * as THREE from "three"
+import { loadCloudDome, type CloudDome } from "./cloudDome"
 import { createPlaceBubbles } from "./placeBubbles"
 import { ownMemoryPosition } from "./ownMemoryLayout"
 import { createMemoryImmersion } from "./memoryImmersion"
@@ -18,6 +19,7 @@ export type PlaceScene = {
 }
 export async function createPlaceScene(host: HTMLDivElement, options: {
   session?: XRSession
+  backdrop?: "cloud-dome"
   layout?: "nearby" | "mine"
   compact?: boolean
   onRing: (memory: PlaceMemory | null) => void
@@ -73,6 +75,7 @@ export async function createPlaceScene(host: HTMLDivElement, options: {
   let yaw = 0, pitch = 0
   let arAnchor: THREE.Vector3 | null = null
   let arNorth = 0
+  let cloudDome: CloudDome | null = null
   let drag: { x: number; y: number; moved: number } | null = null
   const loadedTextures = new Set<THREE.Texture>()
   const photoMaterials = new Set<THREE.SpriteMaterial>()
@@ -249,10 +252,15 @@ export async function createPlaceScene(host: HTMLDivElement, options: {
   renderer.domElement.addEventListener("pointerup", up)
   renderer.domElement.addEventListener("pointercancel", cancel)
   renderer.domElement.addEventListener("pointerleave", cancel)
+  // The "local" reference space starts at head height; the dome floor sits at the demo's 1.5m eye height below it.
+  const placeDome = () => {
+    if (!cloudDome || !arAnchor) return
+    cloudDome.root.position.set(arAnchor.x, arAnchor.y - 1.5, arAnchor.z)
+  }
   const cleanup = () => {
     if (disposed) return
     disposed = true; revision++; observer.disconnect(); renderer.setAnimationLoop(null)
-    immersion.dispose(); ringBack.dispose()
+    immersion.dispose(); ringBack.dispose(); cloudDome?.dispose(); cloudDome = null
     ring?.dispose(); targets.splice(0).forEach(disposeMarker)
     loadedTextures.forEach(t => t.dispose()); photoMaterials.forEach(m => m.dispose())
     controllers.forEach((controller, i) => controller.removeEventListener("selectstart", handlers[i]))
@@ -264,6 +272,16 @@ export async function createPlaceScene(host: HTMLDivElement, options: {
   if (options.session) {
     try { await renderer.xr.setSession(options.session) }
     catch (error) { cleanup(); throw error }
+  }
+  if (options.backdrop === "cloud-dome") {
+    void loadCloudDome({ scene, renderer, url: `${import.meta.env.BASE_URL}exports/cloud-dome-grid.glb` }).then(
+      (dome) => {
+        if (disposed) { dome.dispose(); return }
+        cloudDome = dome
+        if (arAnchor) placeDome()
+      },
+      () => { if (!disposed) options.onError("背景空間を読み込めませんでした。再読み込みしてください。") },
+    )
   }
   renderer.setAnimationLoop((time, frame) => {
     const delta = previous === null ? 0 : Math.min((time - previous) / 1000, 0.1)
@@ -278,8 +296,10 @@ export async function createPlaceScene(host: HTMLDivElement, options: {
         forward.set(0, 0, -1).applyQuaternion(q)
         arNorth = Math.atan2(-forward.x, -forward.z) + yaw
         markersRoot.position.copy(arAnchor); markersRoot.rotation.y = arNorth
+        placeDome()
       }
     }
+    cloudDome?.update(delta)
     eye.updateMatrixWorld(true)
     scene.updateMatrixWorld(true)
     const head = renderer.xr.isPresenting ? renderer.xr.getCamera() : eye

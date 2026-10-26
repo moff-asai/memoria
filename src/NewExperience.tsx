@@ -4,7 +4,7 @@ import { relativePlace } from "./placeGeometry"
 import type { PlaceDraft, PlaceMemory, DraftPhoto } from "./placeMemoriesApi"
 import type { PlaceScene } from "./placeScene"
 
-type CameraState = "web" | "starting" | "ar"
+type CameraState = "web" | "starting" | "ar" | "vr"
 type PhotoView = { memory: PlaceMemory; index: number }
 type SensorEvent = DeviceOrientationEvent & { webkitCompassHeading?: number }
 
@@ -30,6 +30,7 @@ export function NewExperience({ view = "nearby", onCreate }: { view?: "nearby" |
   const orientationCleanup = useRef<(() => void) | null>(null)
   const [camera, setCamera] = useState<CameraState>("web")
   const [arSupported, setArSupported] = useState(false)
+  const [vrSupported, setVrSupported] = useState(false)
   const [status, setStatus] = useState("")
   const [error, setError] = useState("")
   const [working, setWorking] = useState(false)
@@ -67,6 +68,7 @@ export function NewExperience({ view = "nearby", onCreate }: { view?: "nearby" |
   useEffect(() => {
     mounted.current = true
     void navigator.xr?.isSessionSupported("immersive-ar").then(value => { if (mounted.current) setArSupported(value) }).catch(() => {})
+    void navigator.xr?.isSessionSupported("immersive-vr").then(value => { if (mounted.current) setVrSupported(value) }).catch(() => {})
     return () => {
       mounted.current = false; release()
       draftRef.current?.photos.forEach(p => URL.revokeObjectURL(p.url))
@@ -89,10 +91,10 @@ export function NewExperience({ view = "nearby", onCreate }: { view?: "nearby" |
     return () => { if (dialog?.open) dialog.close() }
   }, [Boolean(photo)])
 
-  const makeScene = async (activeSession?: XRSession) => {
+  const makeScene = async (activeSession?: XRSession, vr = false) => {
     const { createPlaceScene } = await import("./placeScene")
     if (!layer.current || !mounted.current) return
-    const view = await createPlaceScene(layer.current, { session: activeSession, layout: personal ? "mine" : "nearby", compact,
+    const view = await createPlaceScene(layer.current, { session: activeSession, backdrop: vr ? "cloud-dome" : undefined, layout: personal ? "mine" : "nearby", compact,
       onRing: (value) => { if (mounted.current) { setRing(value); setRename(false); setConfirmDelete(false) } },
       onPhoto: (memory, index) => { if (mounted.current) setPhoto({ memory, index }) },
       onError: message => { if (mounted.current) setError(message) },
@@ -132,23 +134,24 @@ export function NewExperience({ view = "nearby", onCreate }: { view?: "nearby" |
     if (personal) void loadOwn()
     return () => { ownRequest.current++ }
   }, [personal, page, compact])
-  const startAR = async () => {
+  const startXR = async (mode: "ar" | "vr") => {
     if (!navigator.xr || !root.current || camera === "starting") return
     release(); setCamera("starting"); setError(""); setRing(null); setPhoto(null)
     const request = generation.current
     let active: XRSession | undefined
     try {
-      active = await navigator.xr.requestSession("immersive-ar", { optionalFeatures: ["dom-overlay"], domOverlay: { root: root.current } })
+      active = mode === "vr" ? await navigator.xr.requestSession("immersive-vr")
+        : await navigator.xr.requestSession("immersive-ar", { optionalFeatures: ["dom-overlay"], domOverlay: { root: root.current } })
       session.current = active
-      const view = await makeScene(active)
+      const view = await makeScene(active, mode === "vr")
       if (!mounted.current || request !== generation.current) { view?.dispose(); await active.end(); return }
       scene.current = view ?? null
       view?.setMemories(memoriesRef.current, locationRef.current ?? undefined)
       active.addEventListener("end", () => {
         if (session.current === active) { session.current = null; scene.current?.dispose(); scene.current = null; if (mounted.current) { setCamera("web"); setRing(null) } }
       }, { once: true })
-      setCamera("ar"); setOriented(false)
-      setStatus(personal ? "思い出を見回して、泡を選んでください。" : "北を向いて「正面を北に合わせる」を押してください。")
+      setCamera(mode); setOriented(false)
+      setStatus(personal || mode === "vr" ? "思い出を見回して、泡を選んでください。" : "北を向いて「正面を北に合わせる」を押してください。")
     } catch {
       if (active) void active.end().catch(() => {})
       if (mounted.current && request === generation.current) { release(); setCamera("web"); showError(new Error("WebXRを開始できませんでした。対応端末・ブラウザーでお試しください。")) }
@@ -299,7 +302,7 @@ export function NewExperience({ view = "nearby", onCreate }: { view?: "nearby" |
         <button className="ov-pill" onClick={() => void orient()}>{oriented ? "方位センサー使用中" : "方位センサーを使う"}</button>
         <button className="ov-pill" onClick={() => { scene.current?.alignNorth(); setOriented(true); setStatus("正面を北に合わせました。") }}>正面を北に合わせる</button>
       </>}
-      {camera === "web" ? <button className="ov-pill" disabled={!arSupported || working || Boolean(ring)} onClick={() => void startAR()}>{arSupported ? "WebXRで見る" : "WebXR非対応"}</button>
+      {camera === "web" ? <button className="ov-pill" disabled={!arSupported || working || Boolean(ring)} onClick={() => void startXR("ar")}>{arSupported ? "WebXRで見る" : "WebXR非対応"}</button>
         : <button className="ov-pill" onClick={() => { release(); setCamera("web"); setRing(null); setPhoto(null); setStatus("") }}>Web表示に戻る</button>}
       {!personal && <details className="place-privacy"><summary>位置情報と公開について</summary><p>周辺更新時の現在地は、本人用に最新1件だけ保存します。公開した思い出の撮影地点は、現在地を削除しても残ります。</p><button className="place-text" disabled={working} onClick={() => void forgetLocation()}>保存した現在地を削除</button></details>}
     </aside>}
@@ -310,19 +313,19 @@ export function NewExperience({ view = "nearby", onCreate }: { view?: "nearby" |
       {camera === "web" && memories.length > 0 && <p className="place-subtle">カーソルを合わせて見る · 押して思い出の中へ · ドラッグで見回す</p>}
     </div>
     {cameraActive && !ring && <div className="ov-dock place-dock">
-      {personal ? <>
-        <div className="ov-composer place-gallery-controls">
+      <div className="ov-row">
+        {personal ? <div className="ov-composer place-gallery-controls">
           <button className="ov-pill" disabled={working || page === 0} onClick={() => setPage(value => value - 1)}>前へ</button>
           <span className="place-prompt">自分の思い出 · {page + 1}ページ</span>
           <button className="ov-pill" disabled={working || !hasMore} onClick={() => setPage(value => value + 1)}>次へ</button>
-        </div>
-        <p className="ov-foot">このブラウザーで残した思い出 · 泡を押して写真を見る</p>
-      </> : <>
-        <div className="ov-composer"><button className="ov-icon" aria-label="写真を選ぶ" disabled={working} onClick={() => picker.current?.click()}>＋</button>
+        </div> : <div className="ov-composer"><button className="ov-icon" aria-label="写真を選ぶ" disabled={working} onClick={() => picker.current?.click()}>＋</button>
           <span className="ov-composer-prompt place-prompt">この場所に、思い出を残す</span>
-          <button className="ov-pill place-shutter" disabled={working} onClick={() => picker.current?.click()}>写真を選ぶ</button></div>
-        <p className="ov-foot">周辺50mの思い出 · 周囲の環境はWebXRで表示</p>
-      </>}
+          <button className="ov-pill place-shutter" disabled={working} onClick={() => picker.current?.click()}>写真を選ぶ</button></div>}
+        {camera === "web" && <div className="ov-vr" data-ready={vrSupported}>
+          <button type="button" disabled={!vrSupported || working} onClick={() => void startXR("vr")}>{vrSupported ? "VRで見る" : "VR非対応"}</button>
+        </div>}
+      </div>
+      <p className="ov-foot">{personal ? "このブラウザーで残した思い出 · 泡を押して写真を見る" : "周辺50mの思い出 · 周囲の環境はWebXRで表示"}</p>
     </div>}
     {ring && <section className="place-ring-toolbar" aria-label="思い出の操作">
       <p>{ring.title} · {ring.photos.length}枚の写真{locationRef.current ? ` · 約${Math.round(relativePlace(locationRef.current, ring).distance)}m` : ""}</p>
