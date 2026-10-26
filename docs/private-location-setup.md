@@ -9,7 +9,7 @@
 1. 対象プロジェクトを確認する: https://supabase.com/dashboard/project/niaopqpzpwrfhfwzllzs
 2. Authentication の設定で Allow anonymous sign-ins を有効にする。
 3. SQL Editorで `supabase/migrations/202610260001_private_locations.sql` を確認して実行する。
-4. 新規画面の「周辺を更新」を押し、ブラウザーの位置情報許可を選ぶ。実座標のテストは利用者本人が行う。
+4. 「場所の思い出」タブの「周辺を更新」を押し、ブラウザーの位置情報許可を選ぶ。実座標のテストは利用者本人が行う。
 5. 保存成功後、削除操作が成功することを確認する。別のブラウザーの匿名ユーザーからは既存の位置情報が見えないことを確認する。
 
 既存の `/memories` API、公開写真、既存の Edge Function は変更・再デプロイしない。ローカルの Edge Function ソースと現在動いているAPIには差があるため、これらを一括デプロイしてはいけません。

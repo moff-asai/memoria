@@ -35,5 +35,5 @@ export const saveMemory = async (
   _title: string,
   _blobs: Blob[],
 ): Promise<Memory> => {
-  throw new Error("写真を場所に残すには「新規画面」を使用してください。デモからのDB公開は停止しています。")
+  throw new Error("写真を場所に残すには「場所の思い出」タブを使用してください。デモからのDB公開は停止しています。")
 }

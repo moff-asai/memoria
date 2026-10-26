@@ -90,9 +90,9 @@ node tests/memoryDraft.browser.mjs
 
 `MEMORIA_URL`（既定 `http://localhost:3000`）、`CDP_URL`（既定 `http://localhost:9222`）で接続先を変更できます。
 
-## 新規画面・匿名認証の現在地
+## 「場所の思い出」タブ・匿名認証の現在地
 
-起動時は泡0個の新規画面を表示し、既存の画面は「デモモデル」から開きます。位置情報保存の管理者設定・RLS検証・カメラとARの仕様は [設定手順](docs/private-location-setup.md) を参照してください。匿名認証と専用テーブルの設定が完了するまで実DBへの位置情報保存は有効になりません。
+起動時は泡0個の「場所の思い出」タブを表示し、既存の画面は「デモモデル」から開きます。位置情報保存の管理者設定・RLS検証・カメラとARの仕様は [設定手順](docs/private-location-setup.md) を参照してください。匿名認証と専用テーブルの設定が完了するまで実DBへの位置情報保存は有効になりません。
 
 ## 写真を場所に残すカメラ版
 
@@ -100,7 +100,7 @@ node tests/memoryDraft.browser.mjs
 
 ## Supabase接続先の変更
 
-現在の対象は `niaopqpzpwrfhfwzllzs` です。[新プロジェクトの接続手順](docs/supabase-project-setup.md) に従い、公開キー・匿名認証・SQL・Edge Functionを設定してください。旧プロジェクトの共有APIへの通信は停止し、デモは同梱写真で表示します。場所付き投稿は新規画面から利用します。
+現在の対象は `niaopqpzpwrfhfwzllzs` です。[新プロジェクトの接続手順](docs/supabase-project-setup.md) に従い、公開キー・匿名認証・SQL・Edge Functionを設定してください。旧プロジェクトの共有APIへの通信は停止し、デモは同梱写真で表示します。場所付き投稿は「場所の思い出」タブから利用します。
 
 ## WebとWebXRのページ
 
