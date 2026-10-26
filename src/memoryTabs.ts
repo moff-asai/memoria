@@ -1,6 +1,6 @@
 import * as THREE from "three"
 
-export type TabAction = "back" | "previous" | "next"
+export type TabAction = "back" | "previous" | "next" | "exit"
 
 export type TabTheme = {
   font: string

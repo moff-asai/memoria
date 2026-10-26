@@ -45,6 +45,9 @@ export async function createPlaceScene(host: HTMLDivElement, options: {
   }
   const ringBack = createTabBar([createTabButton("戻る", "back", "secondary", tabTheme)])
   ringBack.group.scale.setScalar(1.6); scene.add(ringBack.group)
+  // Every XR view keeps a way out of the session below the other buttons.
+  const exitBar = createTabBar([createTabButton("VRを終了", "exit", "secondary", tabTheme)])
+  exitBar.group.scale.setScalar(1.6); scene.add(exitBar.group)
   const immersion = createMemoryImmersion({ scene, tabTheme,
     backdropColor: theme.getPropertyValue("--immersion-backdrop").trim(), maxTextureSize: renderer.capabilities.maxTextureSize })
   let immersivePhoto = 0
@@ -175,6 +178,10 @@ export async function createPlaceScene(host: HTMLDivElement, options: {
     immersion.setNavigation({ previous: index > 0, next: index < ring.sphere.photos.length - 1 })
   }
   const choose = async () => {
+    if (renderer.xr.isPresenting && raycaster.intersectObjects(exitBar.targets(), false)[0]) {
+      void renderer.xr.getSession()?.end()
+      return
+    }
     if (loading) return
     if (renderer.xr.isPresenting && immersion.status !== "closed") {
       const hit = raycaster.intersectObjects(immersion.targets(), false)[0]
@@ -260,7 +267,7 @@ export async function createPlaceScene(host: HTMLDivElement, options: {
   const cleanup = () => {
     if (disposed) return
     disposed = true; revision++; observer.disconnect(); renderer.setAnimationLoop(null)
-    immersion.dispose(); ringBack.dispose(); cloudDome?.dispose(); cloudDome = null
+    immersion.dispose(); ringBack.dispose(); exitBar.dispose(); cloudDome?.dispose(); cloudDome = null
     ring?.dispose(); targets.splice(0).forEach(disposeMarker)
     loadedTextures.forEach(t => t.dispose()); photoMaterials.forEach(m => m.dispose())
     controllers.forEach((controller, i) => controller.removeEventListener("selectstart", handlers[i]))
@@ -336,6 +343,12 @@ export async function createPlaceScene(host: HTMLDivElement, options: {
       ringBack.show()
     } else ringBack.hide()
     ringBack.update(delta, position)
+    if (renderer.xr.isPresenting) {
+      head.getWorldDirection(forward); forward.y = 0; forward.normalize()
+      exitBar.group.position.copy(position).addScaledVector(forward, 0.8); exitBar.group.position.y -= 0.95
+      exitBar.show()
+    } else exitBar.hide()
+    exitBar.update(delta, position)
     immersion.update(elapsed, delta, position, renderer.xr.isPresenting)
     renderer.render(scene, eye)
   })

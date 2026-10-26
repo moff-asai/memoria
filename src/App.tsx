@@ -525,6 +525,12 @@ export default function App({ personal = false }: { personal?: boolean }) {
     ringBackButton.mesh.name = "MemoryRingTab-back"
     const ringBack = createTabBar([ringBackButton])
     scene.add(ringBack.group)
+    // Every VR layer keeps a way out of the session below the other buttons.
+    const EXIT_DROP = 0.65
+    const exitButton = createTabButton("VRを終了", "exit", "secondary", tabTheme)
+    exitButton.mesh.name = "MemoryVRTab-exit"
+    const exitBar = createTabBar([exitButton])
+    scene.add(exitBar.group)
     const immersion = createMemoryImmersion({
       scene,
       backdropColor: theme.getPropertyValue("--immersion-backdrop").trim(),
@@ -557,32 +563,36 @@ export default function App({ personal = false }: { personal?: boolean }) {
       eye.getWorldDirection(viewerDirection)
     }
 
-    // Heading of the ring's "戻る" around the viewer. Glances leave it put so
-    // a ray can settle on it; turning well away swings it back in front.
-    let ringBackYaw = 0
-    let ringBackFollowing = false
-    const placeRingBack = (delta: number, snap: boolean) => {
-      // Looking almost straight down has no heading; keep the last one.
-      if (Math.hypot(viewerDirection.x, viewerDirection.z) > 0.2) {
-        const heading = Math.atan2(-viewerDirection.x, -viewerDirection.z)
-        const turn = wrapAngle(heading - ringBackYaw)
-        if (snap) {
-          ringBackYaw = heading
-          ringBackFollowing = false
-        } else {
-          if (Math.abs(turn) > 0.6) ringBackFollowing = true
-          if (ringBackFollowing) {
-            ringBackYaw += turn * (1 - Math.exp(-delta * 6))
-            if (Math.abs(turn) < 0.01) ringBackFollowing = false
+    // Heading of a floating VR button around the viewer. Glances leave it put
+    // so a ray can settle on it; turning well away swings it back in front.
+    const followViewer = (bar: { group: THREE.Group }, drop: number) => {
+      let yaw = 0
+      let following = false
+      return (delta: number, snap: boolean) => {
+        // Looking almost straight down has no heading; keep the last one.
+        if (Math.hypot(viewerDirection.x, viewerDirection.z) > 0.2) {
+          const heading = Math.atan2(-viewerDirection.x, -viewerDirection.z)
+          const turn = wrapAngle(heading - yaw)
+          if (snap) {
+            yaw = heading
+            following = false
+          } else {
+            if (Math.abs(turn) > 0.6) following = true
+            if (following) {
+              yaw += turn * (1 - Math.exp(-delta * 6))
+              if (Math.abs(turn) < 0.01) following = false
+            }
           }
         }
+        bar.group.position.set(
+          viewerPosition.x - Math.sin(yaw) * RING_BACK_AHEAD,
+          viewerPosition.y - drop,
+          viewerPosition.z - Math.cos(yaw) * RING_BACK_AHEAD,
+        )
       }
-      ringBack.group.position.set(
-        viewerPosition.x - Math.sin(ringBackYaw) * RING_BACK_AHEAD,
-        viewerPosition.y - RING_BACK_DROP,
-        viewerPosition.z - Math.cos(ringBackYaw) * RING_BACK_AHEAD,
-      )
     }
+    const placeRingBack = followViewer(ringBack, RING_BACK_DROP)
+    const placeExit = followViewer(exitBar, EXIT_DROP)
 
     // Web (non-XR) navigation: drag to look around; in the space, WASD /
     // arrows, wheel or pinch walk inside the dome's walkable area.
@@ -630,6 +640,11 @@ export default function App({ personal = false }: { personal?: boolean }) {
       const mode = currentMode()
       if (mode === "transition") return null
       scene.updateMatrixWorld(true)
+      if (exitBar.shown) {
+        const exitHit = raycaster.intersectObjects(exitBar.targets(), false)[0]
+        const exitAction = exitHit && exitBar.actionFor(exitHit.object)
+        if (exitAction) return { kind: "tab", action: exitAction }
+      }
       if (mode === "photo") {
         const hit = raycaster.intersectObjects(immersion.targets(), false)[0]
         const action = hit && immersion.actionFor(hit.object)
@@ -797,7 +812,8 @@ export default function App({ personal = false }: { personal?: boolean }) {
       const mode = currentMode()
       if (mode === "transition" || !target) return
       if (target.kind === "tab") {
-        if (target.action === "back") goBack()
+        if (target.action === "exit") void renderer.xr.getSession()?.end()
+        else if (target.action === "back") goBack()
         else showPhoto(target.action === "next" ? 1 : -1)
       } else if (target.kind === "sphere") {
         if (mode === "space") enterMemory(target.sphere, target.mesh)
@@ -847,6 +863,7 @@ export default function App({ personal = false }: { personal?: boolean }) {
       hoveredSphere = target?.kind === "sphere" ? target.sphere : null
       hoveredFragment = target?.kind === "fragment" ? target.fragment : null
       ringBack.setHover(action)
+      exitBar.setHover(action)
       immersion.setHover(action)
       ring?.setHover(target?.kind === "fragment" ? target.fragment : null)
     }
@@ -1209,6 +1226,7 @@ export default function App({ personal = false }: { personal?: boolean }) {
       ring = null
       viewing = null
       ringBack.hide(true)
+      exitBar.hide(true)
     }
     // The web view to come back to after VR.
     let webView: { position: THREE.Vector3; yaw: number; pitch: number } | null = null
@@ -1387,11 +1405,18 @@ export default function App({ personal = false }: { personal?: boolean }) {
       } else if (ringBack.shown) {
         ringBack.hide()
       }
+      if (renderer.xr.isPresenting && !memoryLayout.pending) {
+        placeExit(delta, !exitBar.shown)
+        exitBar.show()
+      } else if (exitBar.shown) {
+        exitBar.hide()
+      }
       if (renderer.xr.isPresenting) updateRingGrab()
       if (mode === "transition") setHover(null)
       else if (renderer.xr.isPresenting) setHover(pickByControllers() ?? pickByGaze())
       updateFragmentLabel()
       ringBack.update(delta, viewerPosition)
+      exitBar.update(delta, viewerPosition)
       immersion.update(elapsed, delta, viewerPosition, renderer.xr.isPresenting)
       const subject = ring?.sphere ?? journey.approaching
       // The breadcrumb follows the viewer's choice: it moves on the press
@@ -1472,6 +1497,7 @@ export default function App({ personal = false }: { personal?: boolean }) {
       ring?.dispose()
       journey.dispose()
       ringBack.dispose()
+      exitBar.dispose()
       immersion.dispose()
       guide.dispose()
       geometry.dispose()

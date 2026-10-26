@@ -139,11 +139,15 @@ export function NewExperience({ view = "nearby", onCreate }: { view?: "nearby" |
     release(); setCamera("starting"); setError(""); setRing(null); setPhoto(null)
     const request = generation.current
     let active: XRSession | undefined
-    // Nearby memories belong to a real place, so VR there shows the headset's passthrough when it has one.
-    const domeVR = mode === "vr" && (personal || !arSupported)
+    // Nearby memories belong to a real place, so VR there asks for the headset's passthrough first.
+    // Some headsets misreport immersive-ar support, so the request itself decides; a refusal falls back to the dome.
+    let domeVR = mode === "vr" && personal
     try {
-      active = domeVR ? await navigator.xr.requestSession("immersive-vr")
-        : await navigator.xr.requestSession("immersive-ar", { optionalFeatures: ["dom-overlay"], domOverlay: { root: root.current } })
+      if (domeVR) active = await navigator.xr.requestSession("immersive-vr")
+      else if (mode === "vr") {
+        try { active = await navigator.xr.requestSession("immersive-ar") }
+        catch { domeVR = true; active = await navigator.xr.requestSession("immersive-vr") }
+      } else active = await navigator.xr.requestSession("immersive-ar", { optionalFeatures: ["dom-overlay"], domOverlay: { root: root.current } })
       session.current = active
       const view = await makeScene(active, domeVR)
       if (!mounted.current || request !== generation.current) { view?.dispose(); await active.end(); return }
