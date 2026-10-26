@@ -13,8 +13,13 @@ export function createVRMemoryLayout() {
     get pending() {
       return pending
     },
+    /** Heading the layout was turned by, so clusters can keep facing the viewer. */
+    get yaw() {
+      return heading.y
+    },
     begin() {
       transform.identity()
+      heading.set(0, 0, 0)
       pending = true
     },
     /** Called only with a valid tracked pose; later head motion leaves it fixed. */
@@ -31,6 +36,7 @@ export function createVRMemoryLayout() {
     reset() {
       pending = false
       transform.identity()
+      heading.set(0, 0, 0)
     },
   }
 }

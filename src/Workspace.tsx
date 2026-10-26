@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react"
+import { HelpGuide } from "./HelpGuide"
 import { NewExperience } from "./NewExperience"
 import "./workspace.css"
 
@@ -19,7 +20,9 @@ export function Workspace() {
       <button type="button" aria-pressed={mode === "create"} onClick={() => setMode("create")}>場所の思い出</button>
       <button type="button" aria-pressed={mode === "mine"} onClick={() => setMode("mine")}>自分の思い出</button>
       <button type="button" aria-pressed={mode === "demo"} onClick={() => setMode("demo")}>デモモデル</button>
+      <HelpGuide />
     </nav>
-    {mode === "demo" ? <Suspense fallback={<p className="workspace-loading" role="status">デモを読み込んでいます…</p>}><DemoModel /></Suspense> : <NewExperience key={mode} view={mode === "mine" ? "mine" : "nearby"} onCreate={() => setMode("create")} />}
+    {mode === "create" ? <NewExperience key={mode} view="nearby" />
+      : <Suspense fallback={<p className="workspace-loading" role="status">デモを読み込んでいます…</p>}><DemoModel key={mode} personal={mode === "mine"} /></Suspense>}
   </div>
 }

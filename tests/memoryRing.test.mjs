@@ -122,3 +122,29 @@ test("returning gathers and fuses the floating bubbles and restores the source m
   assert(sphere.satellites.every(({ mesh }) => mesh.visible))
   assert(!sphere.fusion.visible)
 })
+
+test("a grabbed open ring turns every fragment around the viewer by the spun angle", (t) => {
+  const { ring, center } = fixture(t, 5)
+  ring.update(2, 0.016, center)
+  assert.equal(ring.status, "open")
+  const before = ring.fragments.map(({ mesh }) => mesh.position.clone())
+  ring.spin(Math.PI / 2)
+  ring.update(2.1, 0.016, center)
+  ring.fragments.forEach(({ mesh }, index) => {
+    const from = Math.atan2(before[index].z - center.z, before[index].x - center.x)
+    const to = Math.atan2(mesh.position.z - center.z, mesh.position.x - center.x)
+    const turned = THREE.MathUtils.euclideanModulo(to - from + Math.PI, Math.PI * 2) - Math.PI
+    assert(Math.abs(turned - Math.PI / 2) < 1e-9, `fragment ${index} turned ${turned}`)
+    assert(Math.abs(mesh.position.distanceTo(center) - before[index].distanceTo(center)) < 1e-9, "radius is kept")
+  })
+})
+
+test("spin is ignored until the ring is open", (t) => {
+  const { ring, center } = fixture(t, 5)
+  ring.spin(1)
+  ring.update(2, 0.016, center)
+  const settled = ring.fragments.map(({ mesh }) => mesh.position.clone())
+  const { ring: plain, center: plainCenter } = fixture(t, 5)
+  plain.update(2, 0.016, plainCenter)
+  plain.fragments.forEach(({ mesh }, index) => assert(mesh.position.distanceTo(settled[index]) < 1e-9))
+})

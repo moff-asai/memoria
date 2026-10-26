@@ -2,6 +2,8 @@
 .experience-switch { position: fixed; z-index: 60; top: 80px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; padding: 6px; border: 1px solid #ffffffc9; border-radius: 999px; background: #fcfaffeb; box-shadow: 0 8px 32px #342d4c10; backdrop-filter: blur(20px); }
 .experience-switch button { min-height: 40px; min-width: 112px; padding: 8px 24px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-size: 14px; }
 .experience-switch button[aria-pressed=true] { color: #fff; background: var(--primary); }
+.experience-switch .ov-help { display: grid; place-items: center; align-self: center; width: 40px; min-width: 0; height: 40px; min-height: 0; padding: 0; border: 1px solid var(--surface-border); font-weight: 600; }
+.experience-switch .ov-help:hover { color: var(--ink); }
 .workspace[data-workspace=demo] .experience-switch { top: 80px; }
 .workspace-loading { padding: 160px 32px; text-align: center; }
 .place-experience { position: fixed; inset: 0; overflow: hidden; background: var(--scene-background); }
@@ -57,7 +59,8 @@
 .place-photo-close { margin-left: auto; }
 @media(max-width:720px) {
  .experience-switch,.workspace[data-workspace=demo] .experience-switch { top: 80px; }
- .experience-switch button { padding: 8px 16px; min-width: 104px; }
+ .experience-switch button { padding: 8px 10px; min-width: 0; font-size: 13px; }
+ .experience-switch .ov-help { width: 36px; height: 36px; }
  .place-tools { top: 144px; right: 16px; gap: 6px; }
  .place-tools .ov-pill { padding: 8px 12px; font-size: 11px; }
  .place-notices { top: 144px; left: 16px; transform: none; width: calc(100% - 190px); text-align: left; }

@@ -153,8 +153,7 @@ try {
     mobile: false,
   })
   await call("Page.navigate", { url: preview })
-  await waitFor('Boolean(document.querySelector(".ov-hero-start"))')
-  await click(".ov-hero-start")
+  await waitFor('Boolean(document.querySelector(".ov-help"))')
   await waitFor('!document.querySelector("dialog[open]")')
   assert.equal(
     await evaluate(

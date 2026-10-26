@@ -1,4 +1,4 @@
-import { createElement, useEffect, useRef, useState, type ChangeEvent, type SyntheticEvent } from "react"
+import { createElement, useEffect, useRef, useState, type ChangeEvent } from "react"
 import * as THREE from "three"
 import { MarchingCubes } from "three/examples/jsm/objects/MarchingCubes.js"
 import { VRButton } from "three/examples/jsm/webxr/VRButton.js"
@@ -56,18 +56,24 @@ type SupportStatus = "確認中…" | "対応" | "非対応" | "利用不可" | 
 const sessionModes = ["immersive-vr", "immersive-ar"] as const
 const CAMERA_FOV = 70
 
+type MemoryPlace = { page: number; slot: number; pages: number }
 type AddMemoryToScene = (
   memory: Pick<Memory, "id" | "photos" | "title">,
   animate: boolean,
+  place?: MemoryPlace,
 ) => void
+// Each page of own memories faces its own direction around the viewer;
+// many pages share the circle instead of overlapping.
+const ownPageYaw = (page: number, pages: number) =>
+  -page * Math.min(Math.PI / 2, (Math.PI * 2) / Math.max(1, pages))
 
-export default function App() {
+export default function App({ personal = false }: { personal?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const vrSlotRef = useRef<HTMLDivElement>(null)
-  const welcomeDialogRef = useRef<HTMLDialogElement>(null)
   const controlsRef = useRef<{
     back: () => void
     step: (step: PhotoStep) => void
+    turnTo: (yaw: number) => void
   } | null>(null)
   const hasXR = Boolean(navigator.xr)
   const [support, setSupport] =
@@ -83,24 +89,16 @@ export default function App() {
   const [draft, setDraft] = useState<MemoryDraft | null>(null)
   const [publishError, setPublishError] = useState("")
   const addMemoryRef = useRef<AddMemoryToScene>(() => {})
+  const clearMemoriesRef = useRef(() => {})
+  const memoryPlacesRef = useRef(new Map<string, MemoryPlace>())
   // Newest first. Mirrored in a ref so a rebuilt scene can replay it.
   const memoriesRef = useRef<Memory[]>([])
-  const [showWelcome, setShowWelcome] = useState(true)
-  const dismissWelcome = () => setShowWelcome(false)
   const [syncStatus, setSyncStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   )
   const [savingCount, setSavingCount] = useState(0)
   const [view, setView] = useState<SceneView>(initialSceneView)
   const [presenting, setPresenting] = useState(false)
-  const welcomeOpen = showWelcome && view.mode === "space" && !presenting
-  useEffect(() => {
-    const dialog = welcomeDialogRef.current
-    if (!welcomeOpen || !dialog) return
-    // Native modal behavior keeps focus inside and makes the scene behind it inert.
-    dialog.showModal()
-    return () => dialog.close()
-  }, [welcomeOpen])
   // The VR panel mirrors the footer's status and every toast.
   const guideStatusRef = useRef("")
   const toastSinkRef = useRef<(message: string) => void>(() => {})
@@ -249,6 +247,9 @@ export default function App() {
         photoSources: [] as string[],
         // Title and photo count under the sphere, shown while it is hovered.
         label: null as THREE.Sprite | null,
+        removed: false,
+        // Turned toward the viewer when the sphere sits off to the side on another page.
+        facing: 0,
       }
     }
     type Sphere = ReturnType<typeof makeSphere>
@@ -326,10 +327,9 @@ export default function App() {
     const labelFont =
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif"
     const LABEL_HEIGHT = 0.12
-    // Two lines: the title, then how many photos the memory holds.
-    const makeLabel = (title: string, photoCount: number) => {
+    // Two lines: the title, then a detail such as how many photos the memory holds.
+    const makeLabel = (title: string, detail: string) => {
       const name = title.length > 24 ? `${title.slice(0, 23)}…` : title
-      const detail = `${photoCount}枚の写真`
       const titleFont = `600 46px ${labelFont}`
       const detailFont = `400 32px ${labelFont}`
       const height = 148
@@ -395,6 +395,10 @@ export default function App() {
       sphere.cover = cover
       void Promise.allSettled(uniqueUrls.map(loadSquareTexture)).then((results) => {
         if (disposed) return
+        if (sphere.removed) {
+          results.forEach((result) => { if (result.status === "fulfilled") result.value.dispose() })
+          return
+        }
         const loaded = results.flatMap((result, index) =>
           result.status === "fulfilled"
             ? [{ texture: result.value, src: uniqueUrls[index] }]
@@ -449,7 +453,7 @@ export default function App() {
           sphere.material,
           geometry.parameters.radius,
         )
-        sphere.label = makeLabel(sphere.title, sphere.photos.length)
+        sphere.label = makeLabel(sphere.title, `${sphere.photos.length}枚の写真`)
         sphere.label.name = sphere.group.name.replace("MemoryCollection-", "MemoryLabel-")
         sphere.label.userData.reach = clusterReach(sphere.satellites)
         cover.loaded = true
@@ -463,15 +467,18 @@ export default function App() {
     // New memories fill rows above the original three spheres.
     const slotX = [0, -0.6325, 0.6325, -1.265, 1.265]
     let memoryCount = 0
-    addMemoryRef.current = ({ id, photos, title }, animate) => {
-      const slot = memoryCount++
+    addMemoryRef.current = ({ id, photos, title }, animate, place) => {
+      const slot = place?.slot ?? memoryCount++
       const x = slotX[slot % slotX.length]
       const position = new THREE.Vector3(
         x,
         2.02 + Math.floor(slot / slotX.length) * 0.46,
         -1.5 - Math.abs(x) * 0.15,
       )
+      // Own memories sit at eye level in the demo row's slots, facing the viewer from their page's direction.
+      if (place) position.set(slotX[place.slot], 1.5, -1.5).applyAxisAngle(THREE.Object3D.DEFAULT_UP, ownPageYaw(place.page, place.pages))
       const sphere = makeSphere(position, slot * 0.9 + 0.4, `memory:${id}`)
+      if (place) sphere.facing = ownPageYaw(place.page, place.pages)
       sphere.title = title || "記憶"
       sphere.group.name = `MemoryCollection-upload-${slot}`
       if (animate) {
@@ -481,6 +488,22 @@ export default function App() {
       }
       spheres.push(sphere)
       loadSpherePhotos(sphere, photos)
+    }
+    // Paging own memories swaps the added spheres; the three demo spheres stay.
+    clearMemoriesRef.current = () => {
+      for (const sphere of spheres.splice(initialDirectories.length)) {
+        sphere.removed = true
+        if (hoveredSphere === sphere) hoveredSphere = null
+        sphere.group.removeFromParent()
+        sphere.label?.removeFromParent()
+        sphere.label?.material.map?.dispose()
+        sphere.label?.material.dispose()
+        sphere.membranes?.dispose()
+        sphere.fusion.geometry.dispose()
+        for (const material of [sphere.material, sphere.fusionMaterial, sphere.paleMaterial, ...sphere.photos]) material.dispose()
+        sphere.photos.forEach((photo) => photo.map?.dispose())
+      }
+      memoryCount = 0
     }
     let elapsed = 0
     const raycaster = new THREE.Raycaster()
@@ -494,9 +517,9 @@ export default function App() {
       ink: theme.getPropertyValue("--ink").trim(),
       border: theme.getPropertyValue("--surface-border").trim(),
     }
-    // "戻る" in the ring layer waits at the viewer's feet, always facing them,
-    // so a VR ray can close the ring without picking a fragment first.
-    const RING_BACK_DROP = 1.0
+    // "戻る" in the ring layer waits just below the front photo, always facing
+    // the viewer, so a VR ray can close the ring without picking a fragment first.
+    const RING_BACK_DROP = 0.35
     const RING_BACK_AHEAD = 0.7
     const ringBackButton = createTabButton("戻る", "back", "secondary", tabTheme)
     ringBackButton.mesh.name = "MemoryRingTab-back"
@@ -697,7 +720,6 @@ export default function App() {
 
     const enterMemory = (sphere: Sphere, mesh: THREE.Object3D) => {
       if (currentMode() !== "space") return
-      dismissWelcome()
       const leadPhoto = leadPhotoFor(sphere, mesh)
       openRing(sphere, leadPhoto)
     }
@@ -768,7 +790,7 @@ export default function App() {
       }
     }
 
-    controlsRef.current = { back: goBack, step: showPhoto }
+    controlsRef.current = { back: goBack, step: showPhoto, turnTo: (yaw) => turnTo(yaw) }
 
     // One layer down. Empty space does nothing; every press is ignored mid-transition.
     const activate = (target: Pick) => {
@@ -782,10 +804,48 @@ export default function App() {
       } else if (mode === "ring") enterImmersion(target.fragment)
     }
 
+    // The ring photo under the pointer, ray or gaze shows its memory's title and place in the ring.
+    let hoveredFragment: RingFragment | null = null
+    let fragmentLabel: { fragment: RingFragment; label: THREE.Sprite } | null = null
+    const FRAGMENT_LABEL_SCALE = 1.3
+    const disposeFragmentLabel = () => {
+      if (!fragmentLabel) return
+      const { label } = fragmentLabel
+      label.removeFromParent()
+      if (label.material.map) {
+        memoryTextures.splice(memoryTextures.indexOf(label.material.map), 1)
+        label.material.map.dispose()
+      }
+      memoryMaterials.splice(memoryMaterials.indexOf(label.material), 1)
+      label.material.dispose()
+      fragmentLabel = null
+    }
+    const updateFragmentLabel = () => {
+      const shown = currentMode() === "ring" && ring?.status === "open" && hoveredFragment?.photoIndex != null
+        ? hoveredFragment
+        : null
+      if (fragmentLabel?.fragment !== shown) {
+        disposeFragmentLabel()
+        if (shown && ring && shown.photoIndex !== null) {
+          const label = makeLabel(ring.sphere.title, `写真 ${shown.photoIndex + 1}/${ring.sphere.photos.length}`)
+          label.material.opacity = 1
+          label.scale.set(label.userData.width * FRAGMENT_LABEL_SCALE, LABEL_HEIGHT * FRAGMENT_LABEL_SCALE, 1)
+          label.visible = true
+          fragmentLabel = { fragment: shown, label }
+        }
+      }
+      if (!fragmentLabel) return
+      const { mesh } = fragmentLabel.fragment
+      fragmentLabel.label.position.copy(mesh.position)
+      fragmentLabel.label.position.y -=
+        geometry.parameters.radius * mesh.scale.x + 0.03 + (LABEL_HEIGHT * FRAGMENT_LABEL_SCALE) / 2
+    }
+
     // Pointer, controller ray and head gaze share the same focus animation.
     const setHover = (target: Pick) => {
       const action = target?.kind === "tab" ? target.action : null
       hoveredSphere = target?.kind === "sphere" ? target.sphere : null
+      hoveredFragment = target?.kind === "fragment" ? target.fragment : null
       ringBack.setHover(action)
       immersion.setHover(action)
       ring?.setHover(target?.kind === "fragment" ? target.fragment : null)
@@ -833,6 +893,17 @@ export default function App() {
     let swipe: { x: number; y: number; at: number; yaw: number; pitch: number } | null = null
     // After a swipe the view eases back to where the gesture began.
     let lookSettle: { yaw: number; pitch: number } | null = null
+    // Paging own memories turns the view slowly toward the next page's direction.
+    let pageTurn: number | null = null
+    const turnTo = (yaw: number) => {
+      lookSettle = null
+      const target = look.yaw + wrapAngle(yaw - look.yaw)
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        look.yaw = target
+        look.pitch = 0
+        pageTurn = null
+      } else pageTurn = target
+    }
     const pinchSpan = () => {
       const [a, b] = [...activePointers.values()]
       return Math.hypot(a.x - b.x, a.y - b.y)
@@ -855,6 +926,7 @@ export default function App() {
           pitch: look.pitch,
         }
         lookSettle = null
+        pageTurn = null
       }
       if (activePointers.size === 2) {
         lastPinchSpan = pinchSpan()
@@ -1006,6 +1078,12 @@ export default function App() {
           lookSettle = null
         }
       }
+      if (pageTurn !== null) {
+        const blend = 1 - Math.exp(-delta * 4)
+        look.yaw += (pageTurn - look.yaw) * blend
+        look.pitch -= look.pitch * blend
+        if (Math.abs(pageTurn - look.yaw) + Math.abs(look.pitch) < 1e-4) pageTurn = null
+      }
       camera.rotation.set(look.pitch, look.yaw, 0)
     }
     renderer.domElement.addEventListener("pointerdown", pointerDown)
@@ -1034,19 +1112,47 @@ export default function App() {
       // Stay visible over the immersion backdrop and floating tabs.
       depthTest: false,
     })
+    // In the ring, pressing while a photo is aimed at or gazed at opens it at once;
+    // a pinch (or trigger) held anywhere else and swept sideways turns the ring.
+    let ringGrab: { controller: THREE.XRTargetRaySpace; angle: number } | null = null
+    const rayAngle = (controller: THREE.XRTargetRaySpace) => {
+      controller.updateWorldMatrix(true, false)
+      raycaster.setFromXRController(controller)
+      return Math.atan2(raycaster.ray.direction.z, raycaster.ray.direction.x)
+    }
+    const updateRingGrab = () => {
+      if (!ringGrab) return
+      if (currentMode() !== "ring" || !ring) {
+        ringGrab = null
+        return
+      }
+      const angle = rayAngle(ringGrab.controller)
+      const turn = wrapAngle(angle - ringGrab.angle)
+      ringGrab.angle = angle
+      ring.spin(turn)
+    }
     const controllerHandlers = controllers.map((controller) => {
       const select = () => {
         if (!renderer.xr.isPresenting || memoryLayout.pending) return
         controller.updateWorldMatrix(true, false)
         raycaster.setFromXRController(controller)
-        activate(pick() ?? pickByGaze())
+        const target = pick() ?? pickByGaze()
+        if (currentMode() === "ring" && ring?.status === "open" && !target) {
+          ringGrab = { controller, angle: rayAngle(controller) }
+          return
+        }
+        activate(target)
+      }
+      const release = () => {
+        if (ringGrab?.controller === controller) ringGrab = null
       }
       const ray = new THREE.Line(rayGeometry, rayMaterial)
       ray.renderOrder = 200
       controller.add(ray)
       controller.addEventListener("selectstart", select)
+      controller.addEventListener("selectend", release)
       scene.add(controller)
-      return select
+      return { select, release }
     })
 
     // In the photo layer, tilting a controller's thumbstick left or right
@@ -1094,7 +1200,9 @@ export default function App() {
       activePointers.clear()
       swipe = null
       lookSettle = null
+      ringGrab = null
       setHover(null)
+      disposeFragmentLabel()
       immersion.reset()
       if (ring) ring.sphere.paleMaterial.opacity = ring.sphere.material.opacity
       ring?.dispose()
@@ -1115,7 +1223,6 @@ export default function App() {
         if (sphere.label) sphere.label.visible = false
       })
       setPresenting(true)
-      dismissWelcome()
       setDragging(false)
       guide.snap()
     }
@@ -1226,7 +1333,7 @@ export default function App() {
         // A gentle sway preserves the asymmetric cluster instead of turning it edge-on.
         sphere.group.rotation.set(
           Math.sin(elapsed * 0.22 + sphere.phase) * 0.035,
-          Math.sin(elapsed * 0.18 + sphere.phase) * 0.055,
+          sphere.facing + memoryLayout.yaw + Math.sin(elapsed * 0.18 + sphere.phase) * 0.055,
           Math.sin(elapsed * 0.2 + sphere.phase) * 0.025,
         )
         if (sphere.label) {
@@ -1280,8 +1387,10 @@ export default function App() {
       } else if (ringBack.shown) {
         ringBack.hide()
       }
+      if (renderer.xr.isPresenting) updateRingGrab()
       if (mode === "transition") setHover(null)
       else if (renderer.xr.isPresenting) setHover(pickByControllers() ?? pickByGaze())
+      updateFragmentLabel()
       ringBack.update(delta, viewerPosition)
       immersion.update(elapsed, delta, viewerPosition, renderer.xr.isPresenting)
       const subject = ring?.sphere ?? journey.approaching
@@ -1332,11 +1441,12 @@ export default function App() {
     memoriesRef.current
       .slice()
       .reverse()
-      .forEach((memory) => addMemoryRef.current(memory, false))
+      .forEach((memory) => addMemoryRef.current(memory, false, memoryPlacesRef.current.get(memory.id)))
 
     return () => {
       disposed = true
       addMemoryRef.current = () => {}
+      clearMemoriesRef.current = () => {}
       toastSinkRef.current = () => {}
       controlsRef.current = null
       resizeObserver.disconnect()
@@ -1354,7 +1464,8 @@ export default function App() {
       renderer.xr.removeEventListener("sessionstart", sessionStart)
       renderer.xr.removeEventListener("sessionend", sessionEnd)
       controllers.forEach((controller, index) => {
-        controller.removeEventListener("selectstart", controllerHandlers[index])
+        controller.removeEventListener("selectstart", controllerHandlers[index].select)
+        controller.removeEventListener("selectend", controllerHandlers[index].release)
       })
       const session = renderer.xr.getSession()
       if (session) void session.end().catch(() => {})
@@ -1388,13 +1499,73 @@ export default function App() {
     }
   }, [])
 
-  const addMemory = (memory: Memory, animate: boolean) => {
+  const addMemory = (memory: Memory, animate: boolean, place?: MemoryPlace) => {
     memoriesRef.current = [memory, ...memoriesRef.current]
-    addMemoryRef.current(memory, animate)
+    addMemoryRef.current(memory, animate, place)
   }
 
   // The preserved demo uses bundled photos; no legacy backend polling.
   useEffect(() => { setSyncStatus("ready") }, [])
+
+  // Memories the viewer published from the place tab join the demo spheres, one page at a time.
+  const [ownPage, setOwnPage] = useState(0)
+  const [ownPages, setOwnPages] = useState(1)
+  const [ownLoading, setOwnLoading] = useState(false)
+  useEffect(() => {
+    if (!personal) return
+    let cancelled = false
+    setOwnLoading(true)
+    // Page 1 is the demo row. Page 2 repeats the demo folders in the same slots
+    // (center, left, right) with a different cover; own memories follow, three per page.
+    const demoPage: Memory[] = (["assets-1", "assets-2", "assets-3"] as const).map((directory, slot) => {
+      const photos = getSphereImageSources(directory)
+      const cover = Math.floor(photos.length / 2)
+      return {
+        id: `demo-${directory}-page-2`,
+        title: `記憶 ${String([5, 4, 6][slot]).padStart(2, "0")}`,
+        photos: [...photos.slice(cover), ...photos.slice(0, cover)],
+        createdAt: "",
+      }
+    })
+    const placePages = (pages: Memory[][]) => {
+      clearMemoriesRef.current()
+      memoriesRef.current = []
+      memoryPlacesRef.current.clear()
+      pages.forEach((memories, page) => memories.forEach((memory, slot) => {
+        const place = { page: page + 1, slot, pages: pages.length + 1 }
+        memoryPlacesRef.current.set(memory.id, place)
+        addMemory(memory, false, place)
+      }))
+      setOwnPages(pages.length + 1)
+    }
+    void (async () => {
+      const pages: Memory[][] = [demoPage]
+      try {
+        // Every page is placed at once so VR can show them all around the viewer.
+        const { findOwnMemories } = await import("./placeMemoriesApi")
+        for (let page = 0; ; page++) {
+          const { memories, hasMore } = await findOwnMemories(page, 3)
+          if (cancelled) return
+          if (memories.length) pages.push(memories.map(({ id, title, photos, createdAt }) => ({ id, title, photos, createdAt })))
+          if (!hasMore) break
+        }
+        setSyncStatus("ready")
+      } catch (error) {
+        console.error("Failed to load own memories", error)
+        if (!cancelled) setSyncStatus("error")
+      } finally {
+        if (!cancelled) {
+          placePages(pages)
+          setOwnLoading(false)
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [personal])
+  const showOwnPage = (page: number) => {
+    setOwnPage(page)
+    controlsRef.current?.turnTo(ownPageYaw(page, ownPages))
+  }
 
   const addFiles = (list: FileList | null) => {
     if (publishingRef.current || !list?.length) return
@@ -1459,7 +1630,7 @@ export default function App() {
       data-presenting={presenting}
       onDragOver={(event) => {
         event.preventDefault()
-        if (!presenting && view.mode === "space" && !welcomeOpen && event.dataTransfer.types.includes("Files")) setDragging(true)
+        if (!personal && !presenting && view.mode === "space" && event.dataTransfer.types.includes("Files")) setDragging(true)
       }}
       onDragLeave={(event) => {
         if (event.currentTarget === event.target) setDragging(false)
@@ -1467,7 +1638,7 @@ export default function App() {
       onDrop={(event) => {
         event.preventDefault()
         setDragging(false)
-        if (!presenting && view.mode === "space" && !welcomeOpen) addFiles(event.dataTransfer.files)
+        if (!personal && !presenting && view.mode === "space") addFiles(event.dataTransfer.files)
       }}
     >
       <div ref={containerRef} className="xr-canvas" />
@@ -1491,36 +1662,10 @@ export default function App() {
         <SceneBreadcrumb view={view} />
         <span className="ov-chip" data-on={vrReady}>
           <span aria-hidden="true" />
+          {personal && "貴方の思い出 · "}
           {vrReady ? "VR対応" : `VR ${support["immersive-vr"]}`}
         </span>
       </header>
-
-      {welcomeOpen &&
-        createElement(
-          "dialog",
-          {
-            ref: welcomeDialogRef,
-            className: "ov-hero",
-            "aria-labelledby": "welcome-title",
-            "aria-modal": true,
-            onCancel: (event: SyntheticEvent<HTMLDialogElement>) => {
-              event.preventDefault()
-              dismissWelcome()
-            },
-            onKeyDown: (event: SyntheticEvent<HTMLDialogElement>) => {
-              event.stopPropagation()
-            },
-          },
-          createElement("h2", { id: "welcome-title", className: "ov-hero-title" }, "はじめての使い方"),
-          <ol className="ov-hero-steps">
-            <li><span><strong>見る</strong>：球体にカーソルを合わせる</span></li>
-            <li><span><strong>入る</strong>：押すと記憶のなかへ</span></li>
-            <li><span><strong>戻る</strong>：いつでも1つ前に戻れる</span></li>
-          </ol>,
-          <ActionButton className="ov-pill ov-hero-start" onClick={dismissWelcome} autoFocus>
-            はじめる
-          </ActionButton>,
-        )}
 
       <p
         className="ov-immersion-hint"
@@ -1530,9 +1675,13 @@ export default function App() {
         {PHOTO_GUIDE}
       </p>
 
-      <div className="ov-dock" inert={view.mode !== "space"}>
+      <div className={personal ? "ov-dock place-dock" : "ov-dock"} inert={view.mode !== "space"}>
         <div className="ov-row">
-        <div className="ov-composer">
+        {personal ? <div className="ov-composer place-gallery-controls">
+          <button className="ov-pill" disabled={ownLoading || ownPage === 0} onClick={() => showOwnPage(ownPage - 1)}>前へ</button>
+          <span className="place-prompt">自分の思い出 · {ownPage + 1}ページ</span>
+          <button className="ov-pill" disabled={ownLoading || ownPage >= ownPages - 1} onClick={() => showOwnPage(ownPage + 1)}>次へ</button>
+        </div> : <div className="ov-composer">
           <ActionButton className="ov-icon" onClick={openPicker} aria-label="写真を選んで記憶をつくる">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M12 5v14M5 12h14" />
@@ -1549,11 +1698,11 @@ export default function App() {
             </svg>
             写真を選ぶ
           </ActionButton>
-        </div>
+        </div>}
         <div ref={vrSlotRef} className="ov-vr" data-ready={vrReady} />
         </div>
         <p className="ov-foot">
-          {footStatus || SPACE_GUIDE}
+          {footStatus || (personal ? "このブラウザーで残した思い出 · 泡を押して写真を見る" : SPACE_GUIDE)}
         </p>
       </div>
 

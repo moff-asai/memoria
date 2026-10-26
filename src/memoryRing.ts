@@ -308,6 +308,12 @@ export function createMemoryRing<S extends RingSphere>({
       turnTo = turn + sweepBetween(resting, ahead, 0)
       turnStartedAt = now
     },
+    /** Turn the open ring by `angle` (same sense as the slots), e.g. while it is grabbed. */
+    spin(angle: number) {
+      if (status !== "open") return
+      turnStartedAt = null
+      turn += angle
+    },
     /** Gather every fragment back into the sphere. */
     close(now: number) {
       if (status !== "flowing" && status !== "open") return

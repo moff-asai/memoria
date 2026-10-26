@@ -139,11 +139,13 @@ export function NewExperience({ view = "nearby", onCreate }: { view?: "nearby" |
     release(); setCamera("starting"); setError(""); setRing(null); setPhoto(null)
     const request = generation.current
     let active: XRSession | undefined
+    // Nearby memories belong to a real place, so VR there shows the headset's passthrough when it has one.
+    const domeVR = mode === "vr" && (personal || !arSupported)
     try {
-      active = mode === "vr" ? await navigator.xr.requestSession("immersive-vr")
+      active = domeVR ? await navigator.xr.requestSession("immersive-vr")
         : await navigator.xr.requestSession("immersive-ar", { optionalFeatures: ["dom-overlay"], domOverlay: { root: root.current } })
       session.current = active
-      const view = await makeScene(active, mode === "vr")
+      const view = await makeScene(active, domeVR)
       if (!mounted.current || request !== generation.current) { view?.dispose(); await active.end(); return }
       scene.current = view ?? null
       view?.setMemories(memoriesRef.current, locationRef.current ?? undefined)

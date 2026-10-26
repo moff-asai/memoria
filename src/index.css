@@ -221,6 +221,9 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
   position: absolute; left: 50%; bottom: max(24px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
 }
+/* In the ring the front photo fills the middle (its lower edge near 67% of the
+ * height, its hover label just below), so 戻る waits right under it. */
+.app[data-mode='ring'] .journey-toolbar { top: 76%; bottom: auto; }
 .journey-toolbar {
   /* Shrink-to-fit from left: 50% would halve the width; keep the caption on one line. */
   width: max-content; max-width: calc(100% - 32px);
